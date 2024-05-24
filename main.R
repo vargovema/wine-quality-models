@@ -13,10 +13,16 @@ if (!require("gbm")) install.packages("gbm", dependencies=TRUE); library(gbm)
 if (!require("nnet")) install.packages("nnet", dependencies=TRUE); library(nnet)
 if (!require("mboost")) install.packages("mboost", dependencies=TRUE); library(mboost)
 if (!require("MASS")) install.packages("MASS", dependencies=TRUE); library(MASS)
+if (!require("tidyr")) install.packages("tidyr", dependencies=TRUE); library(tidyr)
 if (!require("vip")) install.packages("vip", dependencies=TRUE); library("vip")
 
+######################################################
+# Data importing, defining dependent variable, dividing into sub-samples, data transformations, defining formulas, expending to binary case, introducing base functions, data transformation for neural network
+######################################################
+
+
 ## Data
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+#setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 data<-read.csv2("data/winequality-white.csv")
 data<-as.data.frame(lapply(data, as.numeric))
 
@@ -145,8 +151,9 @@ decision_b<-function(fito,fitv){
   return(c(boundary = which.min(res)/1000,misc = sum(abs(vec-fito))/length(fito)))
 }
 
-
-## Continuous models
+######################################################
+# Continuous models
+######################################################
 
 # Base fit
 base_fit<-lm(base,data=train)
@@ -251,7 +258,6 @@ tree_n_avg <- prune(tree, cp = tree$cptable[select_avg, "CP"])
 rand_for <- randomForest(base, data = train, importance = TRUE, ntree = 1000, mtry=3)
 
 rand_for_split <- randomForest(base, data = train, importance = TRUE, ntree = 1000, mtry=5)
-rand_for_split_num_vip <- vip(rand_for_split, aesthetics=list(color="black", fill="#D3D3D3", lwd=0.2))
 
 rand_for_rest <- randomForest(base, data = train, importance = TRUE, ntree = 1000, mtry=3, maxnodes=20)
 
@@ -281,35 +287,9 @@ MCRs <- do.call("rbind", MCRs)
 lambda <- lambdas[which.min(MCRs[, "valid"])]
 nn_model <- nnet::nnet(base, data = train_nn, size = 10, trace = 0, decay = lambda, skip = TRUE, linout=TRUE, maxit = 1000)
 
-# Comparison
-results_num_response <- as.data.frame(rbind(rmse(test_y,predict(base_fit,newdata = test)),
-                                            rmse(test_y,predict(bss_fit,newdata = test)),
-                                            rmse(test_y,predict(knn_model, newdata = test)),
-                                            rmse(test_y,predict(aic_fit,newdata = full_data_test)),
-                                            rmse(test_y,predict(bic_fit,newdata = full_data_test)),
-                                            rmse(test_y,as.numeric(predict(ridge , newx = full_x_test))),
-                                            rmse(test_y,as.numeric(predict(lasso , newx = full_x_test))),
-                                            rmse(test_y,as.numeric(predict(enet , newx = full_x_test))),
-                                            rmse(test_y,predict(p.tree, newdata = test, type = "vector")),
-                                            rmse(test_y,predict(tree_n_most, newdata = test, type = "vector")),
-                                            rmse(test_y,predict(tree_n_avg, newdata = test, type = "vector")),
-                                            rmse(test_y,predict(rand_for, newdata = test)),
-                                            rmse(test_y,predict(rand_for_split, newdata = test)),
-                                            rmse(test_y,predict(rand_for_rest, newdata = test)),
-                                            rmse(test_y,predict(gbm_model, newdata = test)),
-                                            rmse(test_y,predict(gbm_model_best, newdata = test)),
-                                            rmse(test_nn$quality, predict(nn_model, test_nn))
-))
-results_num_response <- cbind(c("Linear","Best Subset Selection","K-nearest neighbor",
-                                "Step AIC","Step BIC","Ridge","Lasso","Elastic net","Classification tree",
-                                "Classification tree (frequency size)", "Classification tree (average size)", 
-                                "Random forest (mtry=3)","Random forest (mtry=5)",
-                                "Random forest (mtry=3, maxnodes=20)","Gradient Boosting",
-                                "Optimal Size Gradient Boosting","Neural network"), results_num_response)
-colnames(results_num_response) <- c("Model","RMSE")
-#save(results_num_response, file = "results_num_response.RData")
-
-## Categorical
+######################################################
+# Categorical models
+######################################################
 
 # Base fit
 # Logit
@@ -397,7 +377,6 @@ tree_n_avg_c <- prune(tree_c, cp = tree_c$cptable[select_tree_avg_c, "CP"])
 rand_for_c <- randomForest(base_b, data = train, importance = TRUE, ntree = 1000, mtry=3)
 
 rand_for_split_c <- randomForest(base_b, data = train, importance = TRUE, ntree = 1000, mtry=5)
-rand_for_split_cat_vip <- vip(rand_for_split_c, aesthetics=list(color="black", fill="#D3D3D3", lwd=0.2))
 
 rand_for_rest_c <- randomForest(base_b, data = train, importance = TRUE, ntree = 1000, mtry=3, maxnodes=20)
 
@@ -412,33 +391,9 @@ MCRs_c <- do.call("rbind", MCRs_c)
 lambda_c <- lambdas[which.min(MCRs_c[, "valid"])]
 nn_model_c <- nnet::nnet(base_b, data = train_nn, size = 10, trace = 0, decay = lambda_c, skip = TRUE, maxit = 1000)
 
-# Comparison
-results_cat_response <- as.data.frame(rbind(rmse(test_y,as.numeric(predict(base_fit_logit_c,newdata = test))),
-                                            rmse(test_y,as.numeric(predict(base_fit_probit_c,newdata = test))),
-                                            rmse(test_y,as.numeric(knn_model_most_c)),
-                                            rmse(test_y,as.numeric(knn_model_avg_c)),
-                                            rmse(test_y,as.numeric(predict(aic_fit_c,newdata = full_data_test))),
-                                            rmse(test_y,as.numeric(predict(bic_fit_c,newdata = full_data_test))),
-                                            rmse(test_y,as.numeric(predict(ridge_c, newx = full_x_test))),
-                                            #                                            rmse(test_y,as.numeric(predict(enet_c, newx = full_x_test))),
-                                            rmse(test_y,as.numeric(predict(p.tree_c, newdata = test, type = "vector"))),
-                                            rmse(test_y,as.numeric(predict(tree_n_most_c, newdata = test, type = "vector"))),
-                                            rmse(test_y,as.numeric(predict(tree_n_avg_c, newdata = test, type = "vector"))),
-                                            rmse(test_y,as.numeric(predict(rand_for_c, newdata = test))),
-                                            rmse(test_y,as.numeric(predict(rand_for_split_c, newdata = test))),
-                                            rmse(test_y,as.numeric(predict(rand_for_rest_c, newdata = test))),
-                                            rmse(test_nn$quality, as.numeric(predict(nn_model_c, test_nn)))
-))
-results_cat_response <- cbind(c("Logit","Probit",
-                                "K-nearest neighbor (frequency size)","K-nearest neighbor (average size)",
-                                "Step AIC","Step BIC","Ridge","Classification tree",
-                                "Classification tree (frequency size)", "Classification tree (average size)", 
-                                "Random forest (mtry=3)","Random forest (mtry=5)",
-                                "Random forest (mtry=3, maxnodes=20)","Neural network"), results_cat_response)
-colnames(results_cat_response) <- c("Model","RMSE")
-#save(results_cat_response, file = "results_cat_response.RData")
-
-## Binary
+######################################################
+# Binary models
+######################################################
 
 # Base model
 base_fit_logit_b<-glm(base_b, family = binomial(link = "logit"), data=train_b)
@@ -529,9 +484,9 @@ p.tree_b <- prune(tree_b, cp = tree_b$cptable[select_tree_b, "CP"])
 
 # Bagging tree
 
-vec_b <- sapply(1:100, bag_tree, train = train_b)
-n_most_b <- as.numeric(names(sort(table(vec_b), decreasing = TRUE)[1]))
-n_avg_b <- round(mean(vec_b))
+vec_tree_b <- sapply(1:100, bag_tree, train = train_b)
+n_most_b <- as.numeric(names(sort(table(vec_tree_b), decreasing = TRUE)[1]))
+n_avg_b <- round(mean(vec_tree_b))
 
 select_most_b <- which.min(abs(tree_b$cptable[,"nsplit"]-n_most_b))
 tree_n_most_b <- prune(tree_b, cp = tree_b$cptable[select_most_b, "CP"])
@@ -545,7 +500,6 @@ tree_n_avg_b <- prune(tree_b, cp = tree_b$cptable[select_avg_b, "CP"])
 rand_for_b <- randomForest(base_b, data = train_b, importance = TRUE, ntree = 1000, mtry=3)
 
 rand_for_split_b <- randomForest(base_b, data = train_b, importance = TRUE, ntree = 1000, mtry=5)
-rand_for_split_bin_vip <- vip(rand_for_split_b, aesthetics=list(color="black", fill="#D3D3D3", lwd=0.2))
 
 rand_for_rest_b <- randomForest(base_b, data = train_b, importance = TRUE, ntree = 1000, mtry=3, maxnodes=20)
 
@@ -560,26 +514,111 @@ MCRs_b <- do.call("rbind", MCRs_b)
 lambda_b <- lambdas[which.min(MCRs_b[, "valid"])]
 nn_model_b <- nnet::nnet(base_b, data = train_nn_b, size = 10, trace = 0, decay = lambda_b, skip = TRUE, maxit = 1000)
 
-# Comparison
 
-results_bin_response <- as.data.frame(rbind(rmse(test_y,as.numeric(predict(base_fit_logit_b,newdata = test))),
-                                            rmse(test_y,as.numeric(predict(base_fit_probit_b,newdata = test))),
-                                            rmse(test_y,as.numeric(predict(bss_fit_b,newdata = test))),
-                                            rmse(test_y,as.numeric(predict(knn_model_b))),
-                                            rmse(test_y,as.numeric(knn_model_most_b)),
-                                            rmse(test_y,as.numeric(knn_model_avg_b)),
-                                            rmse(test_y,as.numeric(predict(aic_fit_b,newdata = full_data_test))),
-                                            rmse(test_y,as.numeric(predict(bic_fit_b,newdata = full_data_test))),
-                                            rmse(test_y,as.numeric(predict(ridge_b, newx = full_x_test))),
-                                            rmse(test_y,as.numeric(predict(lasso_b, newx = full_x_test))),
-                                            rmse(test_y,as.numeric(predict(enet_b, newx = full_x_test))),
-                                            rmse(test_y,as.numeric(predict(p.tree_b, newdata = test, type = "vector"))),
-                                            rmse(test_y,as.numeric(predict(tree_n_most_b, newdata = test, type = "vector"))),
-                                            rmse(test_y,as.numeric(predict(tree_n_avg_b, newdata = test, type = "vector"))),
-                                            rmse(test_y,as.numeric(predict(rand_for_b, newdata = test))),
-                                            rmse(test_y,as.numeric(predict(rand_for_split_b, newdata = test))),
-                                            rmse(test_y,as.numeric(predict(rand_for_rest_b, newdata = test))),
-                                            rmse(test_nn$quality, as.numeric(predict(nn_model_b, test_nn)))
+
+## Variables with respect to dependent (categorical)
+
+plot_averages <- function(data, outcome, variable) {
+  data <- data[!is.na(data[[variable]]), ]
+  
+  means<-aggregate(data[[variable]],list(data[[outcome]]),FUN=mean)$x
+  lower<-min(means)*0.95
+  upper<-max(means)*1.05
+  
+  # Create a plot using ggplot2 with y-axis limits
+  ggplot(data, aes(x = .data[[outcome]], y = .data[[variable]])) +
+    geom_bar(stat = "summary", fun = "mean") +
+    labs(x = dependent) +
+    coord_cartesian(ylim=(c(lower, upper))) +
+    theme_gray(base_size = 12)
+}
+
+plot_list <- lapply(variables, function(var) plot_averages(data, dependent, var))
+
+grid.arrange(grobs = plot_list)
+
+## Variables with respect to dependent (binary)
+
+plot_list_b <- lapply(variables, function(var) plot_averages(data_b, dependent, var))
+
+grid.arrange(grobs = plot_list_b)
+
+
+## Comparison Continuous RMSE
+results_num_response <- as.data.frame(rbind(rmse(test_y,predict(base_fit,newdata = test)),
+                                            rmse(test_y,predict(bss_fit,newdata = test)),
+                                            rmse(test_y,predict(knn_model, newdata = test)),
+                                            rmse(test_y,predict(aic_fit,newdata = full_data_test)),
+                                            rmse(test_y,predict(bic_fit,newdata = full_data_test)),
+                                            rmse(test_y,as.numeric(predict(ridge , newx = full_x_test))),
+                                            rmse(test_y,as.numeric(predict(lasso , newx = full_x_test))),
+                                            rmse(test_y,as.numeric(predict(enet , newx = full_x_test))),
+                                            rmse(test_y,predict(p.tree, newdata = test, type = "vector")),
+                                            rmse(test_y,predict(tree_n_most, newdata = test, type = "vector")),
+                                            rmse(test_y,predict(tree_n_avg, newdata = test, type = "vector")),
+                                            rmse(test_y,predict(rand_for, newdata = test)),
+                                            rmse(test_y,predict(rand_for_split, newdata = test)),
+                                            rmse(test_y,predict(rand_for_rest, newdata = test)),
+                                            rmse(test_y,predict(gbm_model, newdata = test)),
+                                            rmse(test_y,predict(gbm_model_best, newdata = test)),
+                                            rmse(test_y, predict(nn_model, test_nn))
+))
+results_num_response <- cbind(c("Linear","Best Subset Selection","K-nearest neighbor",
+                                "Step AIC","Step BIC","Ridge","Lasso","Elastic net","Classification tree",
+                                "Classification tree (frequency size)", "Classification tree (average size)", 
+                                "Random forest (mtry=3)","Random forest (mtry=5)",
+                                "Random forest (mtry=3, maxnodes=20)","Gradient Boosting",
+                                "Optimal Size Gradient Boosting","Neural network"), results_num_response)
+colnames(results_num_response) <- c("Model","RMSE")
+#save(results_num_response, file = "results_num_response.RData")
+
+
+## Comparison Categorical Misclassification
+results_cat_response <- as.data.frame(rbind(mean(test_y != predict(base_fit_logit_c,newdata = test)),
+                                            mean(test_y != predict(base_fit_probit_c,newdata = test)),
+                                            mean(test_y!=knn_model_most_c),
+                                            mean(test_y!=knn_model_avg_c),
+                                            mean(test_y!=predict(aic_fit_c,newdata = full_data_test)),
+                                            mean(test_y!=predict(bic_fit_c,newdata = full_data_test)),
+                                            mean(test_y!=as.numeric(predict(ridge_c , newx = full_x_test, type="class"))),
+                                            mean(test_y!=predict(p.tree_c, newdata = test, type = "class")),
+                                            mean(test_y!=predict(tree_n_most_c, newdata = test, type = "class")),
+                                            mean(test_y!=predict(tree_n_avg_c, newdata = test, type = "class")),
+                                            mean(test_y!=predict(rand_for_c, newdata = test)),
+                                            mean(test_y!=predict(rand_for_split_c, newdata = test)),
+                                            mean(test_y!=predict(rand_for_rest_c, newdata = test)),
+                                            mean(predict(nn_model_c, test_nn, type = "class") != test_y)
+))
+results_cat_response <- cbind(c("Logit","Probit",
+                                "K-nearest neighbor (frequency size)","K-nearest neighbor (average size)",
+                                "Step AIC","Step BIC","Ridge","Classification tree",
+                                "Classification tree (frequency size)", "Classification tree (average size)", 
+                                "Random forest (mtry=3)","Random forest (mtry=5)",
+                                "Random forest (mtry=3, maxnodes=20)","Neural network"), results_cat_response)
+colnames(results_cat_response) <- c("Model","RMSE")
+#save(results_cat_response, file = "results_cat_response.RData")
+
+
+## Comparison Binary Misclassification
+
+results_bin_response <- as.data.frame(rbind(mean(test_y_b != ifelse(predict(base_fit_logit_b,newdata = test_b,type="response")<0.5,0,1)),
+                                            mean(test_y_b != ifelse(predict(base_fit_probit_b,newdata = test_b,type="response")<0.5,0,1)),
+                                            mean(test_y_b != ifelse(predict(bss_fit_b,newdata = test_b,type="response") < 0.5,0,1)),
+                                            mean(test_y_b != predict(knn_model_b)),
+                                            mean(test_y_b != knn_model_most_b),
+                                            mean(test_y_b != knn_model_avg_b),
+                                            mean(test_y_b != ifelse(predict(aic_fit_b,newdata = full_data_test,type="response") < 0.5,0,1)),
+                                            mean(test_y_b != ifelse(predict(bic_fit_b,newdata = full_data_test,type="response") < 0.5,0,1)),
+                                            mean(test_y_b != ifelse(as.numeric(predict(ridge_b , newx = full_x_test,type="response"))< 0.5,0,1)),
+                                            mean(test_y_b != ifelse(as.numeric(predict(lasso_b , newx = full_x_test,type="response"))< 0.5,0,1)),
+                                            mean(test_y_b != ifelse(as.numeric(predict(enet_b , newx = full_x_test,type="response"))< 0.5,0,1)),
+                                            mean(test_y_b != predict(p.tree_b, newdata = test, type = "class")),
+                                            mean(test_y_b != predict(tree_n_most_b, newdata = test, type = "class")),
+                                            mean(test_y_b != predict(tree_n_avg_b, newdata = test, type = "class")),
+                                            mean(test_y_b != predict(rand_for_b, newdata = test_b)),
+                                            mean(test_y_b != predict(rand_for_split_b, newdata = test_b)),
+                                            mean(test_y_b != predict(rand_for_rest_b, newdata = test_b)),
+                                            mean(test_y_b != predict(nn_model_b, test_nn_b, type = "class"))
 ))
 results_bin_response <- cbind(c("Logit","Probit","Best Subset Selection","K-nearest neighbor",
                                 "K-nearest neighbor (frequency size)","K-nearest neighbor (average size)",
@@ -590,198 +629,8 @@ results_bin_response <- cbind(c("Logit","Probit","Best Subset Selection","K-near
 colnames(results_bin_response) <- c("Model","RMSE")
 #save(results_bin_response, file = "results_bin_response.RData")
 
+## Comparison of the models
 
-## Correlation of variables
-
-## Corr plot
-corr <- round(cor(data), 2)
-
-ggcorrplot(corr, hc.order = TRUE, type = "lower",lab = TRUE,lab_size = 2,
-           outline.col = "white",
-           ggtheme = ggplot2::theme_gray,
-           colors = c("#6D9EC1", "white", "#E46726"))
-
-## Variables with respect to dependent (categorical)
-
-plot_averages <- function(data, outcome, variable) {
-  data <- data[!is.na(data[[variable]]), ]
-  
-  means<-aggregate(data[[variable]],list(data[[outcome]]),FUN=mean)$x
-  lower<-min(means)*0.95
-  upper<-max(means)*1.05
-  
-  # Create a plot using ggplot2 with y-axis limits
-  ggplot(data, aes(x = .data[[outcome]], y = .data[[variable]])) +
-    geom_bar(stat = "summary", fun = "mean") +
-    labs(x = "Category", y = paste("Average", variable)) +
-    ggtitle(paste("Average", variable, "by Category")) +
-    coord_cartesian(ylim=(c(lower, upper)))
-}
-
-
-## Variables with respect to dependent (categorical)
-
-plot_averages <- function(data, outcome, variable) {
-  data <- data[!is.na(data[[variable]]), ]
-  
-  means<-aggregate(data[[variable]],list(data[[outcome]]),FUN=mean)$x
-  lower<-min(means)*0.95
-  upper<-max(means)*1.05
-  
-  # Create a plot using ggplot2 with y-axis limits
-  ggplot(data, aes(x = .data[[outcome]], y = .data[[variable]])) +
-    geom_bar(stat = "summary", fun = "mean") +
-    labs(x = "Category", y = paste("Average", variable)) +
-    ggtitle(paste("Average", variable, "by Category")) +
-    coord_cartesian(ylim=(c(lower, upper)))
-}
-
-plot_list <- lapply(variables, function(var) plot_averages(data, dependent, var))
-plot_list
-
-grid.arrange(grobs = plot_list)
-
-
-plot_list <- lapply(variables, function(var) plot_averages(data_b, dependent, var))
-plot_list
-
-grid.arrange(grobs = plot_list)
-
-
-## Continuous RMSE
-
-# Base Fit
-rmse(test_y,predict(base_fit,newdata = test))
-
-# Best Subset Selection
-rmse(test_y,predict(bss_fit,newdata = test))
-
-# K-nearest neighbor
-rmse(test_y,predict(knn_model))
-
-# Step AIC
-rmse(test_y,predict(aic_fit,newdata = full_data_test))
-
-# Step BIC
-rmse(test_y,predict(bic_fit,newdata = full_data_test))
-
-# Ridge
-rmse(test_y,as.numeric(predict(ridge , newx = full_x_test)))
-
-# Lasso
-rmse(test_y,as.numeric(predict(lasso , newx = full_x_test)))
-
-#Elastic net
-rmse(test_y,as.numeric(predict(enet , newx = full_x_test)))
-
-# Optimized tree
-
-rmse(test_y,predict(p.tree, newdata = test, type = "vector"))
-rmse(test_y,predict(tree_n_most, newdata = test, type = "vector"))
-rmse(test_y,predict(tree_n_avg, newdata = test, type = "vector"))
-
-# Random forest
-
-rmse(test_y,predict(rand_for, newdata = test))
-rmse(test_y,predict(rand_for_split, newdata = test))
-rmse(test_y,predict(rand_for_rest, newdata = test))
-
-# Boosting
-
-rmse(test_y,predict(gbm_model, newdata = test))
-rmse(test_y,predict(gbm_model_best, newdata = test))
-
-# Neural network
-
-rmse(test_y, predict(nn_model, test_nn))
-
-
-## Categorical RMSE
-
-# Base fit
-mean(test_y != predict(base_fit_logit_c,newdata = test))
-mean(test_y != predict(base_fit_probit_c,newdata = test))
-
-# K-nearest neighbor
-mean(test_y!=knn_model_most_c)
-mean(test_y!=knn_model_avg_c)
-
-# Step AIC
-mean(test_y!=predict(aic_fit_c,newdata = full_data_test))
-
-# Step BIC
-mean(test_y!=predict(bic_fit_c,newdata = full_data_test))
-
-# Ridge
-mean(test_y!=as.numeric(predict(ridge_c , newx = full_x_test, type="class")))
-
-# Optimized tree
-
-mean(test_y!=predict(p.tree_c, newdata = test, type = "class"))
-mean(test_y!=predict(tree_n_most_c, newdata = test, type = "class"))
-mean(test_y!=predict(tree_n_avg_c, newdata = test, type = "class"))
-
-# Random forest
-
-mean(test_y!=predict(rand_for_c, newdata = test))
-mean(test_y!=predict(rand_for_split_c, newdata = test))
-mean(test_y!=predict(rand_for_rest_c, newdata = test))
-
-# Neural network
-
-mean(predict(nn_model_c, test_nn, type = "class") != test_y)
-
-
-## Binary RMSE
-
-# Base fit
-mean(test_y_b != ifelse(predict(base_fit_logit_b,newdata = test_b,type="response")<0.5,0,1))
-mean(test_y_b != ifelse(predict(base_fit_probit_b,newdata = test_b,type="response")<0.5,0,1))
-
-# Best Subset Selection
-mean(test_y_b != ifelse(predict(bss_fit_b,newdata = test_b,type="response") < 0.5,0,1))
-
-# K-nearest neighbor
-mean(test_y_b != predict(knn_model_b))
-
-mean(test_y_b != knn_model_most_b)
-
-mean(test_y_b != knn_model_avg_b)
-
-# Step AIC
-mean(test_y_b != ifelse(predict(aic_fit_b,newdata = full_data_test,type="response") < 0.5,0,1))
-
-# Step BIC
-mean(test_y_b != ifelse(predict(bic_fit_b,newdata = full_data_test,type="response") < 0.5,0,1))
-
-# Ridge
-mean(test_y_b != ifelse(as.numeric(predict(ridge_b , newx = full_x_test,type="response"))< 0.5,0,1))
-
-# Lasso
-mean(test_y_b != ifelse(as.numeric(predict(lasso_b , newx = full_x_test,type="response"))< 0.5,0,1))
-
-#Elastic net
-mean(test_y_b != ifelse(as.numeric(predict(enet_b , newx = full_x_test,type="response"))< 0.5,0,1))
-
-# Optimized tree
-
-mean(test_y_b != predict(p.tree_b, newdata = test, type = "class"))
-mean(test_y_b != predict(tree_n_most_b, newdata = test, type = "class"))
-mean(test_y_b != predict(tree_n_avg_b, newdata = test, type = "class"))
-
-# Random forest
-
-mean(test_y_b != predict(rand_for_b, newdata = test_b))
-mean(test_y_b != predict(rand_for_split_b, newdata = test_b))
-mean(test_y_b != predict(rand_for_rest_b, newdata = test_b))
-
-# Neural network
-
-mean(test_y_b != predict(nn_model_b, test_nn_b, type = "class"))
-
-# Comparison of the models
-
-# Comparison
 png(file="out/rmse_res.png",width=8, height=4, units="in", res=600, pointsize=1)
 op <-par(mfcol=c(1,3), mar=c(30,130,25,10), mgp=c(22,10,0), cex.axis=8, cex.lab=10, cex.main=13, xpd=TRUE)
 plot(results_num_response$RMSE, 1:nrow(results_num_response), pch=19, col="dodgerblue", axes=FALSE, 
@@ -792,19 +641,21 @@ points(results_num_response$RMSE, 1:nrow(results_num_response),pch=19, col="dodg
 legend("top",legend = c("Numerical response variable"), pch=19, box.lwd=0, cex=13, ncol=2,
        inset=c(0,-0.08), col=c("dodgerblue"), bg="transparent")
 box()
+dev.off()
 
 plot(results_cat_response$RMSE, 1:nrow(results_cat_response), pch=19, col="forestgreen", axes=FALSE, 
-     xlim=c(2,6.5), xlab="RMSE", ylab="")
-axis(side=1, at=seq(2,6.5,0.05), labels=seq(2,6.5,0.05), lwd=0.3)
+     xlim=c(0.2,0.6), xlab="MISC.", ylab="")
+axis(side=1, at=seq(0.2,0.6,0.1), labels=seq(0.2,0.6,0.1), lwd=0.3)
 axis(side=2, at=1:nrow(results_cat_response), labels=results_cat_response$Model, las=2, lwd=0.3, cex=5, tck=1, lty=2)
 points(results_cat_response$RMSE, 1:nrow(results_cat_response),pch=19, col="forestgreen", cex=12)
 legend("top",legend = c("Categorical response variable"), pch=19, box.lwd=0, cex=13, ncol=2,
        inset=c(0,-0.08), col=c("forestgreen"), bg="transparent")
 box()
+dev.off()
 
 plot(results_bin_response$RMSE, 1:nrow(results_bin_response), pch=19, col="darkorange", axes=FALSE, 
-     xlim=c(4,5.5), xlab="RMSE", ylab="")
-axis(side=1, at=seq(4,5.5,0.05), labels=seq(4,5.5,0.05), lwd=0.3)
+     xlim=c(0.1,0.4), xlab="MISC.", ylab="")
+axis(side=1, at=seq(0.1,0.4,0.05), labels=seq(0.1,0.4,0.05), lwd=0.3)
 axis(side=2, at=1:nrow(results_bin_response), labels=results_bin_response$Model, las=2, lwd=0.3, cex=5, tck=1, lty=2)
 points(results_bin_response$RMSE, 1:nrow(results_bin_response),pch=19, col="darkorange", cex=12)
 legend("top",legend = c("Binary response variable"), pch=19, box.lwd=0, cex=13, ncol=2,
@@ -813,22 +664,203 @@ box()
 par(op)
 dev.off()
 
-#VIP Random Forest
+## VIP Random Forest
 
-png(file="out/varimp_rand_forests.png",width=8, height=4, units="in", res=600)
+rand_for_vip <- vip(rand_for, aesthetics=list(color="black", fill="#D3D3D3", lwd=0.2))
+rand_for_b_vip <- vip(rand_for_b, aesthetics=list(color="black", fill="#D3D3D3", lwd=0.2))
+rand_for_c_vip <- vip(rand_for_c, aesthetics=list(color="black", fill="#D3D3D3", lwd=0.2))
+
 grid.arrange(
-  (rand_for_split_num_vip + 
+  (rand_for_vip + 
      ggtitle("Numerical response") + theme_bw(base_size=10) + 
      theme(panel.border = element_blank(), axis.text=element_text(colour="black"),
            panel.grid.minor=element_blank(), axis.line=element_line(color="black"))),
-  (rand_for_split_cat_vip + 
+  (rand_for_b_vip + 
      ggtitle("Categorical response") + theme_bw(base_size=10) + 
      theme(panel.border = element_blank(), axis.text=element_text(colour="black"),
            panel.grid.minor=element_blank(), axis.line=element_line(color="black"))),
-  (rand_for_split_bin_vip + 
+  (rand_for_c_vip + 
      ggtitle("Binary response") + theme_bw(base_size=10) + 
      theme(panel.border = element_blank(), axis.text=element_text(colour="black"),
            panel.grid.minor=element_blank(), axis.line=element_line(color="black"))),
   ncol=3, widths=c(1,1,1))
+
+
+######################################################
+# Continuous plots
+######################################################
+
+# K-nearest neigbors
+
+plot(w_knn_model)
+
+# Ridge
+
+plot(cv.ridge)
+
+# Lasso
+
+plot(cv.lasso)
+
+# Elastic net
+
+plot(enet_opt$rmse,seq(0,1,0.01))
+
+plot(cv.enet)
+
+# Tree
+
+printcp(tree)
+rpart.plot(tree)
+plotcp(tree)
+
+
+printcp(p.tree)
+rpart.plot(p.tree)
+
+# Bootstrap tree
+
+plot(vec)
+
+rpart.plot(tree_n_most)
+
+rpart.plot(tree_n_avg)
+
+# Random Forest
+
+plot(rand_for)
+
+plot(rand_for_split)
+
+plot(rand_for_rest)
+
+MDG <- importance(rand_for)[, "IncNodePurity"]
+MDA <- importance(rand_for, scale = FALSE)[, "%IncMSE"]
+par(mfrow = c(1, 2))
+barplot(MDG[order(MDG)], horiz = TRUE, las = 1,
+        xlab = "mean decrease Gini")
+barplot(MDA[order(MDA)], horiz = TRUE, las = 1,
+        xlab = "mean decrease accuracy")
 dev.off()
+
+# Boosting
+
+gbm_iter <- gbm.perf(gbm_model, method = "cv")
+
+null <- sapply(1:8, function(i) print(plot(gbm_model, i, gbm_iter), split = c((i-1) %/% 2 + 1, (i-1) %% 2 + 1, 4, 2), more = i != 8)) 
+
+# Neural network
+
+matplot(lambdas, MCRs, type = "b", lty = 1, pch = 19)
+legend("bottomright", c("train", "valid"),
+       lty = 1, col = 1:2, box.lwd = 0)
+
+
+######################################################
+# Categorical plots
+######################################################
+
+# K-nearest neighbors
+
+plot(vec_c)
+
+# Ridge
+
+plot(cv.ridge_c)
+
+# Tree
+
+rpart.plot(tree_c)
+plotcp(tree_c)
+
+printcp(p.tree_c)
+rpart.plot(p.tree_c)
+
+plot(vec_tree_c)
+
+rpart.plot(tree_n_most_c)
+rpart.plot(tree_n_avg_c)
+
+# Random Forest
+
+plot(rand_for_c)
+
+plot(rand_for_split_c)
+
+plot(rand_for_rest_c)
+
+MDG_c <- importance(rand_for_c)[, "MeanDecreaseGini"]
+MDA_c <- importance(rand_for_c, scale = FALSE)[, "MeanDecreaseAccuracy"]
+par(mfrow = c(1, 2))
+barplot(MDG[order(MDG_c)], horiz = TRUE, las = 1,
+        xlab = "mean decrease Gini")
+barplot(MDA[order(MDA_c)], horiz = TRUE, las = 1,
+        xlab = "mean decrease accuracy")
+dev.off()
+
+#Neural network
+
+matplot(lambdas, MCRs_c, type = "b", lty = 1, pch = 19)
+legend("bottomright", c("train", "valid"),
+       lty = 1, col = 1:2, box.lwd = 0)
+
+
+######################################################
+# Binary plots
+######################################################
+
+# K-nearest neighbors
+plot(w_knn_model_b)
+
+plot(vec_b)
+
+# Ridge
+
+plot(cv.ridge_b)
+
+# Lasso
+
+plot(cv.lasso_b)
+
+# Elastic net
+
+plot(enet_opt_b$misc,seq(0,1,0.01))
+
+plot(cv.enet_b)
+
+# Tree
+
+rpart.plot(tree_b)
+plotcp(tree_b)
+
+printcp(p.tree_b)
+rpart.plot(p.tree_b)
+
+plot(vec_tree_b)
+
+rpart.plot(tree_n_most_b)
+rpart.plot(tree_n_avg_b)
+
+# Random Forest
+
+plot(rand_for_b)
+
+plot(rand_for_split_b)
+
+plot(rand_for_rest_b)
+
+MDG_b <- importance(rand_for_b)[, "MeanDecreaseGini"]
+MDA_b <- importance(rand_for_b, scale = FALSE)[, "MeanDecreaseAccuracy"]
+par(mfrow = c(1, 2))
+barplot(MDG[order(MDG_b)], horiz = TRUE, las = 1,
+        xlab = "mean decrease Gini")
+barplot(MDA[order(MDA_b)], horiz = TRUE, las = 1,
+        xlab = "mean decrease accuracy")
+dev.off()
+
+#Neural network
+
+matplot(lambdas, MCRs_b, type = "b", lty = 1, pch = 19)
+legend("bottomright", c("train", "valid"),
+       lty = 1, col = 1:2, box.lwd = 0)
 

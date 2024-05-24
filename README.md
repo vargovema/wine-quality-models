@@ -1,4 +1,4 @@
-# wine-quality-models
+# Wine quality models
 
 ## Data
 
@@ -31,19 +31,19 @@ We use transformations on the independent variables to capture patterns in the d
 
 ## Correlation Matrix
 
-![Correlation Matrix](corr.png)
+![Correlation Matrix](out/corr.png)
 
 ## Independent Variables by Category
 
-![Independent Variables by Category](vars.png)
+![Independent Variables by Category](out/vars.png)
 
 ## Independent Variables by Category (Binary)
 
-![Independent Variables by Category (Binary)](vars_b.png)
+![Independent Variables by Category (Binary)](out/vars_b.png)
 
 # Comparison of the Models
 
-![Comparison of the Models](rmse_res.png)
+![Comparison of the Models](out/rmse_res.png)
 
 
 ## Best Subset Selection
@@ -85,11 +85,11 @@ Steps of implementation:
 - In the model using the subset with 9 predictors, citric acid and total sulfur dioxide were omitted. Both also have a correlation close to 0.
 - The method using the AIC as the best subset selector suggests to use 8 predictors instead.
 
-![Model Output Overview](BestSubsetPlot.png)
+![Model Output Overview](out/BestSubsetPlot.png)
 
 ### Best Subset Selection: Variable Importance
 
-![Variable Importance](Barplot.png)
+![Variable Importance](out/Barplot.png)
 
 
 
@@ -122,7 +122,10 @@ Steps of implementation:
 
 ### K-Nearest Neighbours: Model Output Overview
 
-![Model Output Overview](kkn_plot1.png)
+![Model Output Overview](out/kkn_plot1.png)
+
+
+![Model Output Overview 2/2](out/kkn_plot2.png)
 
 
 ### K-Nearest Neighbours: Model Implementation - Categorical Response
@@ -135,6 +138,11 @@ Steps of implementation:
 2. For each subset, a kNN model is trained, and the error rate is calculated for k from 1 to 30.
 3. Aggregate the results to determine the most common k (`k_most`) and the average k (`k_avg`).
 4. Train the final models using these values.
+
+### K-Nearest Neighbours: Model Output Overview
+
+![Model Output Overview](out/kkn_plot4.png)
+
 
 ## Elastic Net (Lasso & Ridge)
 
@@ -167,6 +175,32 @@ Steps of implementation:
 1. To implement the model we will start from the full linear model, with all interactions and transformations.
 2. Using `cv.glmnet` function, which returns the cross-validation performance of the model for a series of $\lambda$ values, we can identify the best $\lambda$ for a given $\alpha`.
 3. With the optimal $\lambda` and the `glmnet` function we can fit the actual model.
+
+### Elastic Net (Lasso & Ridge): Model Output Overview
+
+![Model Output Overview 1/5](out/cv.lasso.png)
+
+![Model Output Overview 2/5](out/cv.ridge.png)
+
+![Model Output Overview 3/5](out/enet.png)
+
+![Model Output Overview 4/5](out/enet_b.png)
+
+#### Result table
+
+|                   | Continuous (Ridge) | Continuous (Lasso) | Continuous (Elastic Net) | Binary (Ridge) | Binary (Lasso) | Binary (Elastic Net) | Categorical (Ridge) |
+|-------------------|--------------------|--------------------|--------------------------|----------------|----------------|----------------------|---------------------|
+| Lambda            | 0.0385             | 0.0009             | 0.0012                   | 0.0181         | 0.0011         | 0.0056               | 0.0168              |
+| Alpha             | 0                  | 1                  | 0.93                     | 0              | 1              | 0.11                 | 1                   |
+| Size              | 55                 | 55                 | 55                       | 55             | 55             | 55                   | 55                  |
+| RMSE/Misc. Error  | 0.7254             | 0.7209             | 0.7211                   | 0.2384         | 0.2343         | 0.2367               | 0.4718              |
+
+### Elastic Net (Lasso & Ridge): Variable Importance
+
+![Variable Importance 1/2](out/varimp_ridge.png)
+
+![Variable Importance 2/2](out/varimp_ridge_alt.png)
+
 
 ## Random Forest
 
@@ -201,7 +235,7 @@ Note: We tried to implement a tuning grid to find the optimal values of **mtry**
 
 ### Variable Importance for the Best-Performing Models
 
-![Variable Importance for the Best-Performing Models](varimp_rand_forests.png)
+![Variable Importance for the Best-Performing Models](out/varimp_rand_forests.png)
 
 # Conclusion
 
@@ -220,5 +254,9 @@ A few remarks on the implemented and not implemented models:
 - Overall, Random Forests outperformed all other models by a large margin. This is mostly due to the nature of the data (i.e., lack of linear features), reduced probability of overfitting, and strong predictive features in both classification and regression.
 - Perhaps a slightly surprising result is the overall good performance of the K-nearest neighbor model given its simplicity.
 - The models do offer significant improvement in prediction compared to random guessing. It is easiest to demonstrate that in the Binary case where 66.5% of wine would be classified as Good, so the baseline misclassification is 33.5%. The random forests achieve a below 20% prediction error in the test data.
+
+## Authors
+
+Matej Balazovic, Eva Laznik, Maximilian Schopp, Marcell Tatar, Ema Vargova
 
 

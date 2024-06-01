@@ -1,4 +1,4 @@
-# Wine quality models
+# Wine Quality Prediction Using Advanced Machine Learning Models
 
 This project aims to explore and compare various statistical and machine learning models to predict the quality of Portuguese "Vinho Verde" wine based on its physicochemical properties.
 

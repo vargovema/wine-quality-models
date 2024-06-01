@@ -1,5 +1,7 @@
 # Wine quality models
 
+This project aims to explore and compare various statistical and machine learning models to predict the quality of Portuguese "Vinho Verde" wine based on its physicochemical properties.
+
 ## Data
 
 ### Data overview
